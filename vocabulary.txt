@@ -1,0 +1,9 @@
+GREETINGS: hello, bye, please, thank you, sorry, yes, no, help
+PRONOUNS: I, you, he, she, we, they
+VERBS: want, go, eat, drink, like, love, need, have, know, learn, come, give, make, play, stop
+QUESTIONS: what, where, when, who, how
+NOUNS: name, food, water, book, home, school, friend, family, time, work, day
+NUMBERS: one, two, three, four, five
+TIME: today, tomorrow, yesterday, morning, night, now
+FEELINGS: happy, sad, tired, hungry, sick, fine
+PLACES: store, hospital, park, bathroom

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Text/Speech to Sign Avatar</title>
+    <style>
+        body {
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        canvas {
+            background-color: white;
+            border: 2px solid #333;
+        }
+        #inputSection {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        input[type="text"] {
+            padding: 8px;
+            font-size: 16px;
+            width: 300px;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #glossOutput {
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            min-height: 24px;
+        }
+        #statusText {
+            color: #666;
+            font-style: italic;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Text/Speech to Sign Avatar</h1>
+
+    <div id="inputSection">
+        <input type="text" id="textInput" placeholder="Type a sentence...">
+        <button onclick="processText()">Convert to Sign</button>
+        <button onclick="startListening()">Speak</button>
+        <p id="statusText"></p>
+        <p id="glossOutput"></p>
+    </div>
+
+    <canvas id="avatarCanvas" width="400" height="500"></canvas>
+
+    <script>
+        const canvas = document.getElementById("avatarCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const restPose = {
+            head: { x: 200, y: 60 },
+            neck: { x: 200, y: 100 },
+            torso: { x: 200, y: 200 },
+            leftShoulder: { x: 160, y: 120 },
+            rightShoulder: { x: 240, y: 120 },
+            leftElbow: { x: 140, y: 180 },
+            rightElbow: { x: 260, y: 180 },
+            leftWrist: { x: 130, y: 240 },
+            rightWrist: { x: 270, y: 240 }
+        };
+
+        const signLibrary = {
+            rest: [restPose],
+
+            hello: [
+                restPose,
+                { ...restPose, rightElbow: { x: 270, y: 100 }, rightWrist: { x: 290, y: 40 } },
+                restPose
+            ],
+
+            yes: [
+                restPose,
+                { ...restPose, rightElbow: { x: 250, y: 140 }, rightWrist: { x: 260, y: 100 } },
+                { ...restPose, rightElbow: { x: 250, y: 160 }, rightWrist: { x: 260, y: 200 } },
+                restPose
+            ],
+
+            want: [
+                restPose,
+                { ...restPose, leftElbow: { x: 180, y: 150 }, leftWrist: { x: 210, y: 190 }, rightElbow: { x: 220, y: 150 }, rightWrist: { x: 190, y: 190 } },
+                restPose
+            ],
+
+            please: [
+                restPose,
+                { ...restPose, rightElbow: { x: 230, y: 150 }, rightWrist: { x: 210, y: 190 } },
+                { ...restPose, rightElbow: { x: 230, y: 160 }, rightWrist: { x: 190, y: 200 } },
+                restPose
+            ],
+
+            thankyou: [
+                restPose,
+                { ...restPose, rightElbow: { x: 220, y: 90 }, rightWrist: { x: 210, y: 60 } },
+                { ...restPose, rightElbow: { x: 250, y: 130 }, rightWrist: { x: 280, y: 170 } },
+                restPose
+            ],
+
+            water: [
+                restPose,
+                { ...restPose, rightElbow: { x: 210, y: 100 }, rightWrist: { x: 195, y: 70 } },
+                { ...restPose, rightElbow: { x: 210, y: 110 }, rightWrist: { x: 195, y: 85 } },
+                { ...restPose, rightElbow: { x: 210, y: 100 }, rightWrist: { x: 195, y: 70 } },
+                restPose
+            ],
+
+            i: [
+                restPose,
+                { ...restPose, rightElbow: { x: 220, y: 160 }, rightWrist: { x: 205, y: 195 } },
+                restPose
+            ],
+
+            you: [
+                restPose,
+                { ...restPose, rightElbow: { x: 260, y: 150 }, rightWrist: { x: 320, y: 170 } },
+                restPose
+            ],
+
+            name: [
+                restPose,
+                { ...restPose, leftElbow: { x: 175, y: 150 }, leftWrist: { x: 200, y: 170 }, rightElbow: { x: 225, y: 150 }, rightWrist: { x: 200, y: 170 } },
+                restPose
+            ],
+
+            home: [
+                restPose,
+                { ...restPose, rightElbow: { x: 230, y: 90 }, rightWrist: { x: 215, y: 60 } },
+                restPose
+            ],
+
+            food: [
+                restPose,
+                { ...restPose, rightElbow: { x: 220, y: 100 }, rightWrist: { x: 205, y: 65 } },
+                { ...restPose, rightElbow: { x: 220, y: 110 }, rightWrist: { x: 205, y: 80 } },
+                { ...restPose, rightElbow: { x: 220, y: 100 }, rightWrist: { x: 205, y: 65 } },
+                restPose
+            ],
+
+            bye: [
+                restPose,
+                { ...restPose, rightElbow: { x: 265, y: 100 }, rightWrist: { x: 250, y: 50 } },
+                { ...restPose, rightElbow: { x: 265, y: 100 }, rightWrist: { x: 310, y: 50 } },
+                restPose
+            ],
+
+            no: [
+                restPose,
+                { ...restPose, rightElbow: { x: 235, y: 150 }, rightWrist: { x: 225, y: 175 } },
+                { ...restPose, rightElbow: { x: 235, y: 150 }, rightWrist: { x: 245, y: 175 } },
+                restPose
+            ],
+
+            help: [
+                restPose,
+                { ...restPose, leftElbow: { x: 170, y: 130 }, leftWrist: { x: 195, y: 100 }, rightElbow: { x: 230, y: 130 }, rightWrist: { x: 205, y: 100 } },
+                restPose
+            ],
+
+            go: [
+                restPose,
+                { ...restPose, rightElbow: { x: 270, y: 160 }, rightWrist: { x: 330, y: 160 } },
+                restPose
+            ],
+
+            eat: [
+                restPose,
+                { ...restPose, rightElbow: { x: 220, y: 95 }, rightWrist: { x: 210, y: 65 } },
+                restPose
+            ],
+
+            come: [
+                restPose,
+                { ...restPose, rightElbow: { x: 270, y: 160 }, rightWrist: { x: 320, y: 160 } },
+                { ...restPose, rightElbow: { x: 240, y: 160 }, rightWrist: { x: 220, y: 170 } },
+                restPose
+            ],
+
+            give: [
+                restPose,
+                { ...restPose, rightElbow: { x: 240, y: 160 }, rightWrist: { x: 230, y: 190 } },
+                { ...restPose, rightElbow: { x: 270, y: 160 }, rightWrist: { x: 330, y: 170 } },
+                restPose
+            ],
+
+            play: [
+                restPose,
+                { ...restPose, rightElbow: { x: 250, y: 150 }, rightWrist: { x: 270, y: 130 } },
+                { ...restPose, rightElbow: { x: 250, y: 150 }, rightWrist: { x: 230, y: 130 } },
+                restPose
+            ],
+
+            happy: [
+                restPose,
+                { ...restPose, rightElbow: { x: 240, y: 150 }, rightWrist: { x: 235, y: 120 } },
+                { ...restPose, rightElbow: { x: 240, y: 160 }, rightWrist: { x: 235, y: 140 } },
+                restPose
+            ],
+
+            sad: [
+                restPose,
+                { ...restPose, rightElbow: { x: 230, y: 100 }, rightWrist: { x: 220, y: 90 } },
+                { ...restPose, rightElbow: { x: 230, y: 140 }, rightWrist: { x: 220, y: 160 } },
+                restPose
+            ],
+
+            what: [
+                restPose,
+                { ...restPose, leftElbow: { x: 175, y: 170 }, leftWrist: { x: 200, y: 200 }, rightElbow: { x: 225, y: 170 }, rightWrist: { x: 200, y: 200 } },
+                { ...restPose, leftElbow: { x: 170, y: 170 }, leftWrist: { x: 190, y: 205 }, rightElbow: { x: 230, y: 170 }, rightWrist: { x: 210, y: 205 } },
+                restPose
+            ],
+
+            where: [
+                restPose,
+                { ...restPose, rightElbow: { x: 250, y: 130 }, rightWrist: { x: 270, y: 100 } },
+                { ...restPose, rightElbow: { x: 250, y: 130 }, rightWrist: { x: 250, y: 100 } },
+                restPose
+            ],
+
+            when: [
+                restPose,
+                { ...restPose, rightElbow: { x: 240, y: 140 }, rightWrist: { x: 245, y: 110 } },
+                { ...restPose, rightElbow: { x: 240, y: 140 }, rightWrist: { x: 225, y: 110 } },
+                restPose
+            ],
+
+            who: [
+                restPose,
+                { ...restPose, rightElbow: { x: 225, y: 100 }, rightWrist: { x: 215, y: 75 } },
+                restPose
+            ],
+
+            how: [
+                restPose,
+                { ...restPose, leftElbow: { x: 180, y: 160 }, leftWrist: { x: 205, y: 190 }, rightElbow: { x: 220, y: 160 }, rightWrist: { x: 195, y: 190 } },
+                { ...restPose, leftElbow: { x: 170, y: 165 }, leftWrist: { x: 190, y: 200 }, rightElbow: { x: 230, y: 165 }, rightWrist: { x: 210, y: 200 } },
+                restPose
+            ],
+
+            today: [
+                restPose,
+                { ...restPose, leftElbow: { x: 175, y: 160 }, leftWrist: { x: 200, y: 195 }, rightElbow: { x: 225, y: 160 }, rightWrist: { x: 200, y: 195 } },
+                restPose
+            ],
+
+            tomorrow: [
+                restPose,
+                { ...restPose, rightElbow: { x: 260, y: 130 }, rightWrist: { x: 310, y: 110 } },
+                restPose
+            ],
+
+            morning: [
+                restPose,
+                { ...restPose, rightElbow: { x: 240, y: 150 }, rightWrist: { x: 235, y: 190 } },
+                { ...restPose, rightElbow: { x: 240, y: 100 }, rightWrist: { x: 235, y: 60 } },
+                restPose
+            ],
+
+            night: [
+                restPose,
+                { ...restPose, rightElbow: { x: 240, y: 100 }, rightWrist: { x: 235, y: 60 } },
+                { ...restPose, rightElbow: { x: 240, y: 150 }, rightWrist: { x: 235, y: 195 } },
+                restPose
+            ],
+
+            now: [
+                restPose,
+                { ...restPose, leftElbow: { x: 175, y: 155 }, leftWrist: { x: 200, y: 200 }, rightElbow: { x: 225, y: 155 }, rightWrist: { x: 200, y: 200 } },
+                restPose
+            ],
+
+            one: [
+                restPose,
+                { ...restPose, rightElbow: { x: 240, y: 100 }, rightWrist: { x: 230, y: 50 } },
+                restPose
+            ],
+
+            two: [
+                restPose,
+                { ...restPose, rightElbow: { x: 245, y: 100 }, rightWrist: { x: 250, y: 50 } },
+                restPose
+            ],
+
+            three: [
+                restPose,
+                { ...restPose, rightElbow: { x: 250, y: 100 }, rightWrist: { x: 270, y: 50 } },
+                restPose
+            ],
+
+            four: [
+                restPose,
+                { ...restPose, rightElbow: { x: 265, y: 130 }, rightWrist: { x: 330, y: 130 } },
+                restPose
+            ],
+
+            five: [
+                restPose,
+                { ...restPose, rightElbow: { x: 270, y: 100 }, rightWrist: { x: 340, y: 90 } },
+                restPose
+            ],
+
+            tired: [
+                restPose,
+                { ...restPose, leftElbow: { x: 175, y: 140 }, leftWrist: { x: 195, y: 175 }, rightElbow: { x: 225, y: 140 }, rightWrist: { x: 205, y: 175 } },
+                restPose
+            ],
+
+            hungry: [
+                restPose,
+                { ...restPose, rightElbow: { x: 235, y: 140 }, rightWrist: { x: 225, y: 160 } },
+                { ...restPose, rightElbow: { x: 235, y: 170 }, rightWrist: { x: 225, y: 195 } },
+                restPose
+            ],
+
+            sick: [
+                restPose,
+                { ...restPose, rightElbow: { x: 225, y: 100 }, rightWrist: { x: 210, y: 75 } },
+                restPose
+            ],
+
+            fine: [
+                restPose,
+                { ...restPose, rightElbow: { x: 235, y: 150 }, rightWrist: { x: 230, y: 120 } },
+                restPose
+            ],
+
+            stop: [
+                restPose,
+                { ...restPose, leftElbow: { x: 175, y: 155 }, leftWrist: { x: 200, y: 195 }, rightElbow: { x: 225, y: 130 }, rightWrist: { x: 200, y: 165 } },
+                restPose
+            ]
+        };
+
+        function drawSkeleton(pose) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.arc(pose.head.x, pose.head.y, 25, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.lineWidth = 4;
+            drawLine(pose.neck, pose.torso);
+            drawLine(pose.neck, pose.leftShoulder);
+            drawLine(pose.neck, pose.rightShoulder);
+            drawLine(pose.leftShoulder, pose.leftElbow);
+            drawLine(pose.leftElbow, pose.leftWrist);
+            drawLine(pose.rightShoulder, pose.rightElbow);
+            drawLine(pose.rightElbow, pose.rightWrist);
+        }
+
+        function drawLine(pointA, pointB) {
+            ctx.beginPath();
+            ctx.moveTo(pointA.x, pointA.y);
+            ctx.lineTo(pointB.x, pointB.y);
+            ctx.stroke();
+        }
+
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function interpolatePose(poseA, poseB, t) {
+            const result = {};
+            for (const joint in poseA) {
+                result[joint] = {
+                    x: lerp(poseA[joint].x, poseB[joint].x, t),
+                    y: lerp(poseA[joint].y, poseB[joint].y, t)
+                };
+            }
+            return result;
+        }
+
+        let currentAnimationId = null;
+
+        function playSign(signName, onComplete) {
+            const keyframes = signLibrary[signName] || signLibrary["rest"];
+
+            if (currentAnimationId) {
+                cancelAnimationFrame(currentAnimationId);
+            }
+
+            let segmentIndex = 0;
+            const segmentDuration = 500;
+            let startTime = null;
+
+            function animateSegment(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                let t = elapsed / segmentDuration;
+                if (t > 1) t = 1;
+
+                const poseA = keyframes[segmentIndex];
+                const poseB = keyframes[segmentIndex + 1] || poseA;
+                const currentPose = interpolatePose(poseA, poseB, t);
+                drawSkeleton(currentPose);
+
+                if (t < 1) {
+                    currentAnimationId = requestAnimationFrame(animateSegment);
+                } else {
+                    segmentIndex++;
+                    if (segmentIndex < keyframes.length - 1) {
+                        startTime = null;
+                        currentAnimationId = requestAnimationFrame(animateSegment);
+                    } else if (onComplete) {
+                        onComplete();
+                    }
+                }
+            }
+
+            currentAnimationId = requestAnimationFrame(animateSegment);
+        }
+
+        function playSignSequence(words) {
+            let index = 0;
+
+            function playNext() {
+                if (index >= words.length) {
+                    playSign("rest");
+                    return;
+                }
+                const word = words[index];
+                index++;
+                playSign(word, playNext);
+            }
+
+            playNext();
+        }
+
+        const dropWords = new Set([
+            "a", "an", "the", "is", "am", "are", "was", "were", "be", "been",
+            "to", "do", "does", "did", "can", "could", "will", "would", "of"
+        ]);
+
+        function simpleGloss(sentence) {
+            const words = sentence
+                .toLowerCase()
+                .replace(/[.,!?]/g, "")
+                .split(/\s+/);
+
+            const kept = words.filter(word => word && !dropWords.has(word));
+            return kept;
+        }
+
+        function processText() {
+            const text = document.getElementById("textInput").value;
+            if (!text.trim()) return;
+
+            const glossWords = simpleGloss(text);
+            document.getElementById("glossOutput").textContent =
+                "Gloss: " + glossWords.join(" ").toUpperCase();
+
+            const playableWords = glossWords.filter(w => signLibrary[w]);
+
+            if (playableWords.length === 0) {
+                document.getElementById("statusText").textContent =
+                    "No known signs found in that sentence.";
+                playSign("rest");
+                return;
+            }
+
+            document.getElementById("statusText").textContent =
+                "Playing " + playableWords.length + " sign(s)...";
+            playSignSequence(playableWords);
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = "en-US";
+
+            recognition.onresult = (event) => {
+                const spokenText = event.results[0][0].transcript;
+                document.getElementById("textInput").value = spokenText;
+                processText();
+            };
+
+            recognition.onerror = (event) => {
+                document.getElementById("statusText").textContent = "Speech error: " + event.error;
+            };
+        }
+
+        function startListening() {
+            if (!recognition) {
+                document.getElementById("statusText").textContent =
+                    "Speech recognition not supported in this browser. Try Chrome.";
+                return;
+            }
+            document.getElementById("statusText").textContent = "Listening...";
+            recognition.start();
+        }
+
+        document.getElementById("textInput").addEventListener("keypress", (e) => {
+            if (e.key === "Enter") processText();
+        });
+
+        drawSkeleton(restPose);
+    </script>
+</body>
+</html>

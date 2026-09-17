@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Speech to Text Test</title>
+</head>
+<body>
+    <h1>Speech to Text Test</h1>
+    <button id="startBtn">Start Listening</button>
+    <p>You said:</p>
+    <p id="output" style="font-size: 20px; font-weight: bold;"></p>
+
+    <script>
+        const startBtn = document.getElementById("startBtn");
+        const output = document.getElementById("output");
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            output.textContent = "Sorry, your browser doesn't support Speech Recognition. Try Chrome.";
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.lang = "en-US";
+
+            startBtn.addEventListener("click", () => {
+                output.textContent = "Listening...";
+                recognition.start();
+            });
+
+            recognition.onresult = (event) => {
+                const spokenText = event.results[0][0].transcript;
+                output.textContent = spokenText;
+            };
+
+            recognition.onerror = (event) => {
+                output.textContent = "Error: " + event.error;
+            };
+        }
+    </script>
+</body>
+</html>
